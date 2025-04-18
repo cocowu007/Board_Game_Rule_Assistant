@@ -15,6 +15,7 @@ By combining Generative AI with Retrieval-Augmented Generation (RAG), we can bui
 - Accepts natural-language questions
 - Retrieves relevant rules
 - Generates friendly, clear answers
+
 No more flipping through manuals — just ask your question.
 
 ## Framework: A RAG Pipeline with Gemini + Chroma
