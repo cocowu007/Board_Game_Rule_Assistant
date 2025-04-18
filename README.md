@@ -6,6 +6,7 @@ Ever been excited to play a new board game, only to get stuck in 20 pages of rul
 - “How many resources do I need to trade at a port in Catan?”
 - “How do I get out of this trap?”
 - “Is it allowed to attack the king without these tools?”
+
 But players have no easy way to find that out quickly.
 
 ## Solution: Gen AI + RAG = Real-Time Game Rule Q&A
