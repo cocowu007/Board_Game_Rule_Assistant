@@ -29,9 +29,6 @@ Here’s how the system works:
 ### Define the documents (game rules)
 ```
 GAME_RULES = {...}
-"""
-
-documents = [CATAN_RULES, CHESS_RULES, MONOPOLY_RULES]
 ```
 ### Create a custom Gemini embedding function
 ```
