@@ -28,24 +28,7 @@ Here’s how the system works:
 ## Code Snippets
 ### Define the documents (game rules)
 ```
-# Sample board game rule documents
-CATAN_RULES = """
-In Catan, players collect resources based on terrain hexes adjacent to their settlements. 
-On each turn, players roll two dice to determine which hexes produce resources. 
-Building roads costs 1 wood and 1 brick. Settlements cost 1 wood, 1 brick, 1 wheat, and 1 sheep.
-The robber steals resources when a 7 is rolled.
-"""
-
-CHESS_RULES = """
-Chess is played on an 8x8 board. Pawns move forward but capture diagonally. 
-The king moves one square in any direction. Castling involves moving the king two squares toward a rook.
-Check occurs when the king is under attack. Checkmate ends the game.
-"""
-
-MONOPOLY_RULES = """
-In Monopoly, players move around the board buying properties. 
-Rolling doubles lets you roll again. Landing on unowned property lets you buy it.
-Houses increase rent prices. Going to jail skips 3 turns unless you pay $50 or roll doubles.
+GAME_RULES = {...}
 """
 
 documents = [CATAN_RULES, CHESS_RULES, MONOPOLY_RULES]
@@ -55,7 +38,7 @@ documents = [CATAN_RULES, CHESS_RULES, MONOPOLY_RULES]
 class GeminiEmbeddingFunction(EmbeddingFunction):
     document_mode = True
     
-    @retry.Retry(predicate=lambda e: isinstance(e, genai.errors.APIError) and e.code in {429, 503})
+    @retry.Retry(predicate=lambda e: isinstance(e, genai.errors.APIError))
     def __call__(self, input: Documents) -> Embeddings:
         task_type = "retrieval_document" if self.document_mode else "retrieval_query"
         response = client.models.embed_content(
@@ -73,25 +56,45 @@ chroma_client = chromadb.Client()
 db = chroma_client.get_or_create_collection(
     name="boardgames_db", 
     embedding_function=embed_fn)
-db.add(documents=documents, ids=[str(i) for i in range(len(documents))])
+
+db.add(
+    documents=list(GAME_RULES.values()),
+    ids=list(GAME_RULES.keys()),
+    metadatas=[{"game": name} for name in GAME_RULES.keys()]
+)
 ```
 
 ### Answer user questions via retrieval + generation
 ```
-def ask_about_game(question):
-    embed_fn.document_mode = False
-    results = db.query(query_texts=[question], n_results=1)
-    passage = results["documents"][0][0]
+def ask_about_game(question, game_name=None):
+    try:
+        # Query with optional game filtering
+        filters = {"game": game_name} if game_name else None
+        results = db.query(
+            query_texts=[question],
+            n_results=3,  # Get top 3 most relevant passages
+            where=filters,
+        )
+        
+        passage = results["documents"][0][0]
+
+        # Few-Shot Prompting
+        prompt = f"""Act as a board game expert. Use these rules to explain to the player with details:
+        Examples:
+        Q: How do ports work in Catan?  
+        A: Ports allow 2:1 or 3:1 resource trades. 
+        Now answer:  
+        QUESTION: {question}
+        Answer ONLY using these rules:{passage}.
+        If unsure, say "I don't have rules for that"."""
+        
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt)
+        return response.text
     
-    prompt = f"""You are a board game expert explaining rules clearly. Use this passage to answer:
-    QUESTION: {question}
-    PASSAGE: {passage}
-    Answer in 2-3 sentences, be precise about rules."""
-    
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=prompt)
-    return response.text
+    except Exception as e:
+        return f"Error: {str(e)}"
 ```
 
 ## Limitations
